@@ -135,6 +135,7 @@ func setupRouter() *gin.Engine {
 	// Public routes (no authentication required)
 	r.POST("/auth/login-local", handleLogin)
 	r.GET("/stream", handleStreamPage)
+	r.GET("/stream/test", handleStreamTestPage)
 	// Required by /stream for unauthenticated video playback.
 	r.POST("/webrtc/stream-session", handleWebRTCStreamSession)
 

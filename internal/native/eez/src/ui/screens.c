@@ -1,4 +1,5 @@
 #include <string.h>
+#include <time.h>
 
 #include "screens.h"
 #include "images.h"
@@ -82,6 +83,19 @@ void create_screen_boot_screen() {
 }
 
 void tick_screen_boot_screen() {
+    static uint32_t boot_screen_enter_ms = 0;
+    uint32_t now = lv_tick_get();
+    if (boot_screen_enter_ms == 0) {
+        boot_screen_enter_ms = now;
+    }
+
+    // Fallback: never stay on boot logo forever.
+    if (now - boot_screen_enter_ms > 1200) {
+        loadScreen(SCREEN_ID_HOME_SCREEN);
+        boot_screen_enter_ms = 0;
+        return;
+    }
+
     {
         const char *new_val = get_var_app_version();
         const char *cur_val = lv_label_get_text(objects.boot_screen_version);
@@ -237,7 +251,7 @@ void create_screen_home_screen() {
                     lv_obj_t *obj = lv_obj_create(parent_obj);
                     objects.home_header_container = obj;
                     lv_obj_set_pos(obj, 0, 0);
-                    lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
+                    lv_obj_set_size(obj, LV_PCT(100), 0);
                     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -246,6 +260,7 @@ void create_screen_home_screen() {
                     lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
                     add_style_flow_row_space_between(obj);
                     {
                         lv_obj_t *parent_obj = obj;
@@ -300,7 +315,7 @@ void create_screen_home_screen() {
                     lv_obj_t *obj = lv_obj_create(parent_obj);
                     objects.home_info_container = obj;
                     lv_obj_set_pos(obj, 0, 0);
-                    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(47));
+                    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(58));
                     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -340,8 +355,8 @@ void create_screen_home_screen() {
                             objects.home_info_mac_addr = obj;
                             lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                            add_style_label_font16(obj);
-                            lv_label_set_text(obj, "01:23:45:67:89:ab");
+                            add_style_label_font_bold30(obj);
+                            lv_label_set_text(obj, "00:00:00");
                         }
                     }
                 }
@@ -381,7 +396,7 @@ void create_screen_home_screen() {
                     {
                         lv_obj_t *parent_obj = obj;
                         {
-                            // USBStatus
+                            // HomeConnectionStatus
                             lv_obj_t *obj = lv_obj_create(parent_obj);
                             objects.usb_status = obj;
                             lv_obj_set_pos(obj, 0, 0);
@@ -398,7 +413,7 @@ void create_screen_home_screen() {
                             {
                                 lv_obj_t *parent_obj = obj;
                                 {
-                                    // USBIndicator
+                                    // CloudIndicator
                                     lv_obj_t *obj = lv_obj_create(parent_obj);
                                     objects.usb_indicator = obj;
                                     lv_obj_set_pos(obj, 0, 0);
@@ -416,30 +431,28 @@ void create_screen_home_screen() {
                                         lv_obj_t *parent_obj = obj;
                                         {
                                             lv_obj_t *obj = lv_image_create(parent_obj);
+                                            objects.cloud_status_icon = obj;
                                             lv_obj_set_pos(obj, 0, 0);
                                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                                            lv_image_set_src(obj, &img_usb);
+                                            lv_image_set_src(obj, &img_cloud);
                                         }
                                         {
                                             lv_obj_t *obj = lv_label_create(parent_obj);
                                             lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
                                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                                             add_style_label_font16(obj);
-                                            lv_label_set_text(obj, "USB");
+                                            lv_label_set_text(obj, "Active");
                                         }
                                     }
                                 }
                                 {
-                                    // USBStatusLabel
+                                    // CloudStatusLabel
                                     lv_obj_t *obj = lv_label_create(parent_obj);
-                                    objects.usb_status_label = obj;
+                                    objects.cloud_status_label = obj;
                                     lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
                                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                                    lv_obj_add_flag(obj, LV_OBJ_FLAG_CHECKABLE);
                                     add_style_label_font16(obj);
-                                    lv_obj_set_style_text_color(obj, lv_color_hex(0xff808080), LV_PART_MAIN | LV_STATE_DEFAULT);
-                                    lv_obj_set_style_text_color(obj, lv_color_hex(0xff22c55e), LV_PART_MAIN | LV_STATE_CHECKED);
-                                    lv_label_set_text(obj, "Unknown");
+                                    lv_label_set_text(obj, "-1 active");
                                 }
                             }
                         }
@@ -516,6 +529,30 @@ void create_screen_home_screen() {
 }
 
 void tick_screen_home_screen() {
+    static time_t last_second = 0;
+
+    time_t now = time(NULL);
+    if (now == last_second) {
+        return;
+    }
+    last_second = now;
+
+    struct tm local_tm;
+    if (localtime_r(&now, &local_tm) == NULL) {
+        return;
+    }
+
+    char time_text[16] = {0};
+    if (strftime(time_text, sizeof(time_text), "%H:%M:%S", &local_tm) == 0) {
+        return;
+    }
+
+    const char *current = lv_label_get_text(objects.home_info_mac_addr);
+    if (strcmp(time_text, current) != 0) {
+        tick_value_change_obj = objects.home_info_mac_addr;
+        lv_label_set_text(objects.home_info_mac_addr, time_text);
+        tick_value_change_obj = NULL;
+    }
 }
 
 void create_screen_menu_screen() {

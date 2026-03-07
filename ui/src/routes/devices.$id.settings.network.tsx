@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FieldValues, FormProvider, useForm } from "react-hook-form";
-import { LuCopy, LuEthernetPort } from "react-icons/lu";
+import { LuEthernetPort } from "react-icons/lu";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import validator from "validator";
@@ -21,7 +21,6 @@ import { SettingsItem } from "@components/SettingsItem";
 import { SettingsPageHeader } from "@/components/SettingsPageheader";
 import StaticIpv4Card from "@components/StaticIpv4Card";
 import StaticIpv6Card from "@components/StaticIpv6Card";
-import { useCopyToClipboard } from "@components/useCopyToClipBoard";
 import { netMaskFromCidr4 } from "@/utils/ip";
 import { getNetworkSettings, getNetworkState } from "@/utils/jsonrpc";
 import notifications from "@/notifications";
@@ -100,6 +99,7 @@ export default function SettingsNetworkRoute() {
   const [criticalChanges, setCriticalChanges] = useState<
     { label: string; from: string; to: string }[]
   >([]);
+  const [deviceLocalTime, setDeviceLocalTime] = useState<string>("-");
 
   const fetchNetworkData = useCallback(async () => {
     try {
@@ -333,7 +333,36 @@ export default function SettingsNetworkRoute() {
     });
   };
 
-  const { copy } = useCopyToClipboard();
+  useEffect(() => {
+    const formatDeviceLocalTime = () => {
+      const timezone = networkState?.dhcp_lease?.timezone;
+      const date = new Date();
+
+      try {
+        const formatter = new Intl.DateTimeFormat(undefined, {
+          timeZone: timezone || undefined,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+
+        const timezoneLabel = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        setDeviceLocalTime(`${formatter.format(date)} (${timezoneLabel || "local"})`);
+      } catch {
+        // Fallback when the timezone value is missing or invalid.
+        setDeviceLocalTime(date.toLocaleString());
+      }
+    };
+
+    formatDeviceLocalTime();
+    const interval = setInterval(formatDeviceLocalTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [networkState?.dhcp_lease?.timezone]);
 
   return (
     <>
@@ -359,31 +388,13 @@ export default function SettingsNetworkRoute() {
           />
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <SettingsItem
-                title={m.network_mac_address_title()}
-                description={m.network_mac_address_description()}
-              />
+              <SettingsItem title="Local Time" description="Current time in device local timezone" />
               <div className="flex items-center">
-                <GridCard cardClassName="rounded-r-none">
-                  <div className="flex h-[34px] items-center px-3 font-mono text-xs text-black select-all dark:text-white">
-                    {networkState?.mac_address}{" "}
+                <GridCard>
+                  <div className="flex h-[34px] items-center px-3 text-sm font-medium text-black dark:text-white">
+                    {deviceLocalTime}
                   </div>
                 </GridCard>
-                <Button
-                  className="rounded-l-none border-l-slate-800/30 dark:border-slate-300/20"
-                  size="SM"
-                  type="button"
-                  theme="light"
-                  LeadingIcon={LuCopy}
-                  onClick={async () => {
-                    const mac = networkState?.mac_address || "";
-                    if (await copy(mac)) {
-                      notifications.success(m.network_mac_address_copy_success({ mac: mac }));
-                    } else {
-                      notifications.error(m.network_mac_address_copy_error());
-                    }
-                  }}
-                />
               </div>
             </div>
 

@@ -41,20 +41,13 @@ func switchToMainScreen() {
 }
 
 func updateDisplayUsbState() {
-	if usbState == "configured" {
-		nativeInstance.UpdateLabelIfChanged("usb_status_label", "Connected")
-		_, _ = nativeInstance.UIObjAddState("usb_status_label", "LV_STATE_CHECKED")
-	} else {
-		nativeInstance.UpdateLabelIfChanged("usb_status_label", "Disconnected")
-		_, _ = nativeInstance.UIObjClearState("usb_status_label", "LV_STATE_CHECKED")
-	}
+	// USB state is intentionally hidden on the Home Screen.
 }
 
 func updateDisplay() {
 	if networkManager != nil {
 		nativeInstance.UpdateLabelIfChanged("home_info_ipv4_addr", networkManager.IPv4String())
 		nativeInstance.UpdateLabelAndChangeVisibility("home_info_ipv6_addr", networkManager.IPv6String())
-		nativeInstance.UpdateLabelIfChanged("home_info_mac_addr", networkManager.MACString())
 	}
 
 	_, _ = nativeInstance.UIObjHide("menu_btn_network")
@@ -208,9 +201,6 @@ func waitCtrlAndRequestDisplayUpdate(shouldWakeDisplay bool, reason string) {
 
 func updateStaticContents() {
 	//contents that never change
-	if networkManager != nil {
-		nativeInstance.UpdateLabelIfChanged("home_info_mac_addr", networkManager.MACString())
-	}
 
 	// get cpu info
 	if cpuInfo, err := os.ReadFile("/proc/cpuinfo"); err == nil {

@@ -3,8 +3,6 @@ import { Form, redirect, useActionData } from "react-router";
 import type { ActionFunction, ActionFunctionArgs, LoaderFunction } from "react-router";
 import { LuEye, LuEyeOff } from "react-icons/lu";
 
-import LogoBlueIcon from "@assets/logo-blue.png";
-import LogoWhiteIcon from "@assets/logo-white.svg";
 import { Button } from "@components/Button";
 import Container from "@components/Container";
 import ExtLink from "@components/ExtLink";
@@ -67,15 +65,15 @@ export default function LoginLocalRoute() {
         <Container>
           <div className="isolate flex h-full w-full items-center justify-center">
             <div className="-mt-32 max-w-2xl space-y-8">
-              <div className="flex items-center justify-center">
-                <img src={LogoWhiteIcon} alt="" className="-ml-4 hidden h-[32px] dark:block" />
-                <img src={LogoBlueIcon} alt="" className="-ml-4 h-[32px] dark:hidden" />
-              </div>
-
               <div className="space-y-2 text-center">
                 <h1 className="text-4xl font-semibold text-black dark:text-white">
                   {m.login_welcome_back()}
                 </h1>
+                <p className="font-medium text-slate-600 dark:text-slate-400">
+                  <a href="/stream" className="underline hover:no-underline">
+                    For video stream click here
+                  </a>
+                </p>
                 <p className="font-medium text-slate-600 dark:text-slate-400">
                   {m.login_enter_password_description()}
                 </p>

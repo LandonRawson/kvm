@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +43,165 @@ func switchToMainScreen() {
 
 func updateDisplayUsbState() {
 	// USB state is intentionally hidden on the Home Screen.
+}
+
+func readSoCTemperatureC() (float64, error) {
+	zonePaths, err := filepath.Glob("/sys/class/thermal/thermal_zone*/temp")
+	if err != nil || len(zonePaths) == 0 {
+		return 0, errors.New("no thermal zones found")
+	}
+
+	for _, tempPath := range zonePaths {
+		tempRaw, readErr := os.ReadFile(tempPath)
+		if readErr != nil {
+			continue
+		}
+
+		tempVal, parseErr := strconv.ParseFloat(strings.TrimSpace(string(tempRaw)), 64)
+		if parseErr != nil || tempVal <= 0 {
+			continue
+		}
+
+		if tempVal > 1000 {
+			tempVal = tempVal / 1000.0
+		}
+
+		return tempVal, nil
+	}
+
+	return 0, errors.New("failed to read thermal zone temperature")
+}
+
+func readCPUStatSample() (uint64, uint64, error) {
+	data, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	line := strings.SplitN(string(data), "\n", 2)[0]
+	parts := strings.Fields(line)
+	if len(parts) < 5 || parts[0] != "cpu" {
+		return 0, 0, errors.New("invalid /proc/stat cpu line")
+	}
+
+	var total uint64
+	for i := 1; i < len(parts); i++ {
+		v, parseErr := strconv.ParseUint(parts[i], 10, 64)
+		if parseErr != nil {
+			return 0, 0, parseErr
+		}
+		total += v
+	}
+
+	idle, err := strconv.ParseUint(parts[4], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return total, idle, nil
+}
+
+var (
+	lastCPUTotal uint64
+	lastCPUIdle  uint64
+	hasCPUSample bool
+)
+
+func readCPUUtilizationPercent() (float64, error) {
+	total, idle, err := readCPUStatSample()
+	if err != nil {
+		return 0, err
+	}
+
+	if !hasCPUSample {
+		hasCPUSample = true
+		lastCPUTotal = total
+		lastCPUIdle = idle
+		return 0, errors.New("initial cpu sample")
+	}
+
+	deltaTotal := total - lastCPUTotal
+	deltaIdle := idle - lastCPUIdle
+
+	lastCPUTotal = total
+	lastCPUIdle = idle
+
+	if deltaTotal == 0 {
+		return 0, errors.New("cpu delta is zero")
+	}
+
+	busy := deltaTotal - deltaIdle
+	return (float64(busy) * 100.0) / float64(deltaTotal), nil
+}
+
+func readRAMUtilizationPercent() (float64, error) {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0, err
+	}
+
+	var memTotalKB uint64
+	var memAvailableKB uint64
+
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				v, parseErr := strconv.ParseUint(fields[1], 10, 64)
+				if parseErr == nil {
+					memTotalKB = v
+				}
+			}
+		}
+		if strings.HasPrefix(line, "MemAvailable:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				v, parseErr := strconv.ParseUint(fields[1], 10, 64)
+				if parseErr == nil {
+					memAvailableKB = v
+				}
+			}
+		}
+	}
+
+	if memTotalKB == 0 || memAvailableKB > memTotalKB {
+		return 0, errors.New("invalid meminfo values")
+	}
+
+	usedKB := memTotalKB - memAvailableKB
+	return (float64(usedKB) * 100.0) / float64(memTotalKB), nil
+}
+
+func updateDisplaySystemMetrics() {
+	tempText := "--"
+	cpuText := "--"
+	ramText := "--"
+
+	if tempC, err := readSoCTemperatureC(); err == nil {
+		tempText = fmt.Sprintf("%.1fC", tempC)
+	}
+
+	if cpuUsage, err := readCPUUtilizationPercent(); err == nil {
+		cpuText = fmt.Sprintf("%.1f%%", cpuUsage)
+	}
+
+	if ramUsage, err := readRAMUtilizationPercent(); err == nil {
+		ramText = fmt.Sprintf("%.1f%%", ramUsage)
+	}
+
+	nativeInstance.UpdateLabelIfChanged("home_info_soc_temp", fmt.Sprintf("Temp: %s  CPU: %s", tempText, cpuText))
+	nativeInstance.UpdateLabelIfChanged("home_info_ram_usage", fmt.Sprintf("Ram: %s", ramText))
+}
+
+func startDisplaySystemMetricsTicker() {
+	metricsTicker := time.NewTicker(5 * time.Second)
+
+	go func() {
+		updateDisplaySystemMetrics()
+		for range metricsTicker.C {
+			updateDisplaySystemMetrics()
+		}
+	}()
 }
 
 func updateDisplay() {
@@ -368,6 +528,7 @@ func initDisplay() {
 		time.Sleep(500 * time.Millisecond)
 		updateStaticContents()
 		updateDisplayUsbState()
+		startDisplaySystemMetricsTicker()
 		displayInited = true
 		displayLogger.Info().Msg("display inited")
 		startBacklightTickers()

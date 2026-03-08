@@ -342,7 +342,7 @@ void create_screen_home_screen() {
                     lv_obj_t *obj = lv_obj_create(parent_obj);
                     objects.home_info_container = obj;
                     lv_obj_set_pos(obj, 0, 0);
-                    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(58));
+                    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(62));
                     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -387,6 +387,39 @@ void create_screen_home_screen() {
                             lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
                             lv_label_set_text(obj, "00:00:00");
                         }
+                        {
+                            // HomeInfoSoCTemp
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.home_info_soc_temp = obj;
+                            lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            add_style_label_font16(obj);
+                            lv_obj_set_style_margin_top(obj, -6, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "Temp: --  CPU: --");
+                        }
+                        {
+                            // HomeInfoCPUUtilization
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.home_info_cpu_utilization = obj;
+                            lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                            add_style_label_font16(obj);
+                            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "CPU: --");
+                        }
+                        {
+                            // HomeInfoRamUsage
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.home_info_ram_usage = obj;
+                            lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            add_style_label_font16(obj);
+                            lv_obj_set_style_margin_top(obj, -6, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "Ram: --");
+                        }
                     }
                 }
                 {
@@ -394,7 +427,7 @@ void create_screen_home_screen() {
                     lv_obj_t *obj = lv_obj_create(parent_obj);
                     objects.divider = obj;
                     lv_obj_set_pos(obj, 0, 0);
-                    lv_obj_set_size(obj, LV_PCT(100), 1);
+                    lv_obj_set_size(obj, LV_PCT(100), 0);
                     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -405,7 +438,7 @@ void create_screen_home_screen() {
                     lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
                     add_style_flex_column_start(obj);
                     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff262626), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                 }
                 {
                     // HomeStatusContainer

@@ -356,6 +356,8 @@ void create_screen_home_screen() {
                             lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             add_style_label_font_bold30(obj);
+                            lv_obj_set_style_text_font(obj, &ui_font_time40, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
                             lv_label_set_text(obj, "00:00:00");
                         }
                     }

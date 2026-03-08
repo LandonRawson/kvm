@@ -22,6 +22,7 @@ show_help() {
     echo "      --disable-docker       Disable docker build"
     echo "      --enable-sync-trace    Enable sync trace (do not use in release builds)"
     echo "      --native-binary        Build and deploy the native binary (FOR DEBUGGING ONLY)"
+    echo "      --detach               Start app in background and exit after deploy"
     echo "  -i, --install              Build for release and install the app"
     echo "      --help                 Display this help message"
     echo
@@ -64,6 +65,7 @@ SKIP_UI_BUILD_RELEASE=0
 SKIP_NATIVE_BUILD=0
 GDB_DEBUG_PORT=2345
 BUILD_NATIVE_BINARY=false
+DETACH_AFTER_DEPLOY=false
 ENABLE_SYNC_TRACE=0
 RESET_USB_HID_DEVICE=false
 LOG_TRACE_SCOPES="${LOG_TRACE_SCOPES:-jetkvm,cloud,websocket,native,jsonrpc}"  # Scopes to enable TRACE logging for
@@ -129,6 +131,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --native-binary)
             BUILD_NATIVE_BINARY=true
+            shift
+            ;;
+        --detach)
+            DETACH_AFTER_DEPLOY=true
             shift
             ;;
         -i|--install)
@@ -292,8 +298,10 @@ else
 	# Kill any existing instances of the application
 	sshdev "killall jetkvm_app_debug || true"
 
-	# Copy the binary to the remote host
-	sshdev "cat > ${REMOTE_PATH}/jetkvm_app_debug" < bin/jetkvm_app
+    # Copy the binary to the remote host for both normal and debug entrypoints.
+    # Some devices may restart using jetkvm_app under supervisor control.
+    sshdev "cat > ${REMOTE_PATH}/jetkvm_app_debug" < bin/jetkvm_app
+    sshdev "cat > ${REMOTE_PATH}/jetkvm_app" < bin/jetkvm_app
 
 	if [ "$RESET_USB_HID_DEVICE" = true ]; then
 	msg_info "▶ Resetting USB HID device"
@@ -328,15 +336,22 @@ done
 # Navigate to the directory where the binary will be stored
 cd "${REMOTE_PATH}"
 
-# Make the new binary executable
+    # Make the new binaries executable
 chmod +x jetkvm_app_debug
+    chmod +x jetkvm_app
 
 # Run the application with logging configuration
 if [ -n "${LOG_TRACE_SCOPES}" ]; then
     export JETKVM_LOG_ERROR=all
     export JETKVM_LOG_TRACE="${LOG_TRACE_SCOPES}"
 fi
-./jetkvm_app_debug | tee -a /tmp/jetkvm_app_debug.log
+
+if [ "${DETACH_AFTER_DEPLOY}" = true ]; then
+    nohup ./jetkvm_app_debug >> /tmp/jetkvm_app_debug.log 2>&1 &
+    echo "Started jetkvm_app_debug in background (detach mode)."
+else
+    ./jetkvm_app_debug | tee -a /tmp/jetkvm_app_debug.log
+fi
 EOF
 fi
 

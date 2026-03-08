@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,23 +23,106 @@ var (
 var (
 	dimTicker *time.Ticker
 	offTicker *time.Ticker
+	routeDecisionLock sync.Mutex
+	lastRouteDecision string
+	lastNetworkUsable *bool
 )
 
 const (
 	backlightControlClass string = "/sys/class/backlight/backlight/brightness"
 )
 
-func switchToMainScreen() {
+func hasUsableNetworkAddress() bool {
 	if networkManager == nil {
+		return false
+	}
+
+	if networkManager.IsOnline() {
+		return true
+	}
+
+	if networkManager.IPv4Ready() || networkManager.IPv6Ready() {
+		return true
+	}
+
+	if isUsableIPAddress(networkManager.IPv4String()) || isUsableIPAddress(networkManager.IPv6String()) {
+		return true
+	}
+
+	return false
+}
+
+func isUsableIPAddress(ip string) bool {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return false
+	}
+
+	// IPv6 addresses may carry an interface zone suffix (e.g. %eth0).
+	if zoneIndex := strings.Index(ip, "%"); zoneIndex >= 0 {
+		ip = ip[:zoneIndex]
+	}
+
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+
+	if parsed.IsUnspecified() || parsed.IsLoopback() {
+		return false
+	}
+
+	return true
+}
+
+func logDisplayRouteDecision(reason, target string) {
+	isOnline := false
+	ipv4Ready := false
+	ipv6Ready := false
+	ipv4 := ""
+	ipv6 := ""
+
+	if networkManager != nil {
+		isOnline = networkManager.IsOnline()
+		ipv4Ready = networkManager.IPv4Ready()
+		ipv6Ready = networkManager.IPv6Ready()
+		ipv4 = networkManager.IPv4String()
+		ipv6 = networkManager.IPv6String()
+	}
+
+	hasUsable := hasUsableNetworkAddress()
+	signature := fmt.Sprintf("reason=%s target=%s usable=%t online=%t ipv4Ready=%t ipv6Ready=%t ipv4=%s ipv6=%s",
+		reason, target, hasUsable, isOnline, ipv4Ready, ipv6Ready, ipv4, ipv6)
+
+	routeDecisionLock.Lock()
+	if signature == lastRouteDecision {
+		routeDecisionLock.Unlock()
+		return
+	}
+	lastRouteDecision = signature
+	routeDecisionLock.Unlock()
+
+	logger.Debug().
+		Str("reason", reason).
+		Str("target", target).
+		Bool("hasUsableNetworkAddress", hasUsable).
+		Bool("isOnline", isOnline).
+		Bool("ipv4Ready", ipv4Ready).
+		Bool("ipv6Ready", ipv6Ready).
+		Str("ipv4", ipv4).
+		Str("ipv6", ipv6).
+		Msg("display route decision")
+}
+
+func switchToMainScreen() {
+	if !hasUsableNetworkAddress() {
+		logDisplayRouteDecision("switchToMainScreen", "no_network_screen")
 		nativeInstance.SwitchToScreenIfDifferent("no_network_screen")
 		return
 	}
 
-	if networkManager.IsUp() {
-		nativeInstance.SwitchToScreenIfDifferent("home_screen")
-	} else {
-		nativeInstance.SwitchToScreenIfDifferent("no_network_screen")
-	}
+	logDisplayRouteDecision("switchToMainScreen", "home_screen")
+	nativeInstance.SwitchToScreenIfDifferent("home_screen")
 }
 
 func updateDisplayUsbState() {
@@ -195,18 +279,30 @@ func updateDisplaySystemMetrics() {
 
 func startDisplaySystemMetricsTicker() {
 	metricsTicker := time.NewTicker(5 * time.Second)
+	reconcileTicker := time.NewTicker(1 * time.Second)
 
 	go func() {
 		updateDisplaySystemMetrics()
-		for range metricsTicker.C {
-			updateDisplaySystemMetrics()
+		requestDisplayUpdate(false, "periodic_main_screen_reconcile")
+		for {
+			select {
+			case <-metricsTicker.C:
+				updateDisplaySystemMetrics()
+				requestDisplayUpdate(false, "periodic_main_screen_reconcile")
+			case <-reconcileTicker.C:
+				requestDisplayUpdate(false, "periodic_main_screen_reconcile")
+			}
 		}
 	}()
 }
 
 func updateDisplay() {
 	if networkManager != nil {
-		nativeInstance.UpdateLabelIfChanged("home_info_ipv4_addr", networkManager.IPv4String())
+		ipv4 := networkManager.IPv4String()
+		if ipv4 == "" {
+			ipv4 = "Waiting for IP..."
+		}
+		nativeInstance.UpdateLabelIfChanged("home_info_ipv4_addr", ipv4)
 		nativeInstance.UpdateLabelAndChangeVisibility("home_info_ipv6_addr", networkManager.IPv6String())
 	}
 
@@ -231,12 +327,34 @@ func updateDisplay() {
 	}
 	nativeInstance.UpdateLabelIfChanged("cloud_status_label", fmt.Sprintf("%d active", actionSessions))
 
-	if networkManager != nil && networkManager.IsUp() {
+	hasUsable := hasUsableNetworkAddress()
+
+	if hasUsable {
+		logDisplayRouteDecision("updateDisplay", "home_screen")
 		nativeInstance.UISetVar("main_screen", "home_screen")
 		nativeInstance.SwitchToScreenIf("home_screen", []string{"no_network_screen", "boot_screen"})
 	} else {
+		logDisplayRouteDecision("updateDisplay", "no_network_screen")
 		nativeInstance.UISetVar("main_screen", "no_network_screen")
 		nativeInstance.SwitchToScreenIf("no_network_screen", []string{"home_screen", "boot_screen"})
+	}
+
+	if lastNetworkUsable == nil || *lastNetworkUsable != hasUsable {
+		target := "no_network_screen"
+		if hasUsable {
+			target = "home_screen"
+		}
+
+		logger.Debug().
+			Bool("previousHasUsableNetworkAddress", lastNetworkUsable != nil && *lastNetworkUsable).
+			Bool("hasUsableNetworkAddress", hasUsable).
+			Str("target", target).
+			Msg("forcing main screen switch after network usability transition")
+
+		nativeInstance.SwitchToScreenIfDifferent(target)
+
+		stateCopy := hasUsable
+		lastNetworkUsable = &stateCopy
 	}
 
 	if cloudConnectionState == CloudConnectionStateNotConfigured {
@@ -526,12 +644,16 @@ func initDisplay() {
 	go func() {
 		displayLogger.Info().Msg("setting initial display contents")
 		time.Sleep(500 * time.Millisecond)
-		updateStaticContents()
-		updateDisplayUsbState()
-		startDisplaySystemMetricsTicker()
+
+		// Enable display updates first so network-driven routing is not blocked
+		// if static content updates are slow.
 		displayInited = true
+		startDisplaySystemMetricsTicker()
 		displayLogger.Info().Msg("display inited")
 		startBacklightTickers()
 		requestDisplayUpdate(true, "init_display")
+
+		updateStaticContents()
+		updateDisplayUsbState()
 	}()
 }

@@ -21,8 +21,8 @@ var (
 )
 
 var (
-	dimTicker *time.Ticker
-	offTicker *time.Ticker
+	dimTicker         *time.Ticker
+	offTicker         *time.Ticker
 	routeDecisionLock sync.Mutex
 	lastRouteDecision string
 	lastNetworkUsable *bool

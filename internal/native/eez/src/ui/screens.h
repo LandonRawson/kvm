@@ -54,6 +54,8 @@ typedef struct _objects_t {
     lv_obj_t *menu_items_container_1;
     lv_obj_t *menu_btn_advanced_developer_mode;
     lv_obj_t *menu_btn_advanced_usb_emulation;
+    lv_obj_t *menu_btn_clock_timezone;
+    lv_obj_t *menu_btn_clock_timezone_label;
     lv_obj_t *menu_btn_advanced_reboot;
     lv_obj_t *menu_btn_dhcp_client;
     lv_obj_t *menu_btn_advanced_reset_config;

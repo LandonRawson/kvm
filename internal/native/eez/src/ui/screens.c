@@ -1,5 +1,7 @@
 #include <string.h>
 #include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "screens.h"
 #include "images.h"
@@ -14,6 +16,31 @@
 objects_t objects;
 lv_obj_t *tick_value_change_obj;
 uint32_t active_theme_index = 0;
+
+static int parse_clock_timezone_offset(const char *value, int *offset_out) {
+    if (value == NULL || offset_out == NULL || value[0] == '\0' || strcmp(value, "auto") == 0) {
+        return 0;
+    }
+
+    char *end = NULL;
+    long offset = strtol(value, &end, 10);
+    if (end == value || *end != '\0' || offset < -12 || offset > 14) {
+        return 0;
+    }
+
+    *offset_out = (int)offset;
+    return 1;
+}
+
+static void format_clock_timezone_label(char *buf, size_t buf_size, const char *value) {
+    int offset = 0;
+    if (parse_clock_timezone_offset(value, &offset)) {
+        snprintf(buf, buf_size, "Timezone: UTC%+d", offset);
+        return;
+    }
+
+    snprintf(buf, buf_size, "Timezone: Auto");
+}
 
 void create_screen_boot_screen() {
     lv_obj_t *obj = lv_obj_create(0);
@@ -540,8 +567,18 @@ void tick_screen_home_screen() {
     last_second = now;
 
     struct tm local_tm;
-    if (localtime_r(&now, &local_tm) == NULL) {
-        return;
+    const char *clock_timezone = get_var_clock_timezone();
+    int manual_offset = 0;
+
+    if (parse_clock_timezone_offset(clock_timezone, &manual_offset)) {
+        time_t adjusted = now + ((time_t)manual_offset * 3600);
+        if (gmtime_r(&adjusted, &local_tm) == NULL) {
+            return;
+        }
+    } else {
+        if (localtime_r(&now, &local_tm) == NULL) {
+            return;
+        }
     }
 
     char time_text[16] = {0};
@@ -907,6 +944,27 @@ void create_screen_menu_advanced_screen() {
                                     }
                                 }
                                 {
+                                    // MenuBtnClockTimezone
+                                    lv_obj_t *obj = lv_button_create(parent_obj);
+                                    objects.menu_btn_clock_timezone = obj;
+                                    lv_obj_set_pos(obj, 0, 0);
+                                    lv_obj_set_size(obj, LV_PCT(100), 50);
+                                    lv_obj_add_event_cb(obj, action_cycle_clock_timezone, LV_EVENT_PRESSED, (void *)0);
+                                    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SNAPPABLE);
+                                    add_style_menu_button(obj);
+                                    {
+                                        lv_obj_t *parent_obj = obj;
+                                        {
+                                            lv_obj_t *obj = lv_label_create(parent_obj);
+                                            objects.menu_btn_clock_timezone_label = obj;
+                                            lv_obj_set_pos(obj, 0, 0);
+                                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                                            add_style_menu_button_label(obj);
+                                            lv_label_set_text(obj, "Timezone: Auto");
+                                        }
+                                    }
+                                }
+                                {
                                     // MenuBtnAdvancedReboot
                                     lv_obj_t *obj = lv_button_create(parent_obj);
                                     objects.menu_btn_advanced_reboot = obj;
@@ -980,6 +1038,15 @@ void create_screen_menu_advanced_screen() {
 }
 
 void tick_screen_menu_advanced_screen() {
+    char label_text[48] = {0};
+    format_clock_timezone_label(label_text, sizeof(label_text), get_var_clock_timezone());
+
+    const char *current = lv_label_get_text(objects.menu_btn_clock_timezone_label);
+    if (strcmp(label_text, current) != 0) {
+        tick_value_change_obj = objects.menu_btn_clock_timezone_label;
+        lv_label_set_text(objects.menu_btn_clock_timezone_label, label_text);
+        tick_value_change_obj = NULL;
+    }
 }
 
 void create_screen_menu_network_screen() {

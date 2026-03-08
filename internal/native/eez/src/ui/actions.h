@@ -26,6 +26,7 @@ extern void action_reboot(lv_event_t * e);
 extern void action_switch_to_reboot(lv_event_t * e);
 extern void action_dhcpc(lv_event_t * e);
 extern void action_switch_to_dhcpc(lv_event_t * e);
+extern void action_cycle_clock_timezone(lv_event_t * e);
 
 
 #ifdef __cplusplus

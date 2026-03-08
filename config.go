@@ -115,6 +115,7 @@ type Config struct {
 	VideoSleepAfterSec   int                  `json:"video_sleep_after_sec"`
 	VideoQualityFactor   float64              `json:"video_quality_factor"`
 	NativeMaxRestart     uint                 `json:"native_max_restart_attempts"`
+	ClockTimezone        string               `json:"clock_timezone"`
 }
 
 // GetUpdateAPIURL returns the update API URL
@@ -198,7 +199,44 @@ func getDefaultConfig() Config {
 		}(),
 		DefaultLogLevel:    "WARN",
 		VideoQualityFactor: 1.0,
+		ClockTimezone:      "auto",
 	}
+}
+
+func normalizeClockTimezone(value string) string {
+	v := strings.TrimSpace(strings.ToLower(value))
+	if v == "" || v == "auto" {
+		return "auto"
+	}
+
+	offset, err := strconv.Atoi(v)
+	if err != nil {
+		return "auto"
+	}
+
+	if offset < -12 || offset > 14 {
+		return "auto"
+	}
+
+	return strconv.Itoa(offset)
+}
+
+func nextClockTimezone(value string) string {
+	current := normalizeClockTimezone(value)
+	if current == "auto" {
+		return "-12"
+	}
+
+	offset, err := strconv.Atoi(current)
+	if err != nil {
+		return "auto"
+	}
+
+	if offset >= 14 {
+		return "auto"
+	}
+
+	return strconv.Itoa(offset + 1)
 }
 
 var (
@@ -277,6 +315,8 @@ func LoadConfig() {
 	if loadedConfig.DefaultLogLevel == "INFO" {
 		loadedConfig.DefaultLogLevel = "WARN"
 	}
+
+	loadedConfig.ClockTimezone = normalizeClockTimezone(loadedConfig.ClockTimezone)
 
 	config = &loadedConfig
 

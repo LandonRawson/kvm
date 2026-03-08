@@ -56,6 +56,14 @@ void action_switch_to_reboot(lv_event_t *e) {
     loadScreen(SCREEN_ID_REBOOT_SCREEN);
 }
 
+void action_cycle_clock_timezone(lv_event_t *e) {
+    lv_event_code_t event_code = lv_event_get_code(e);
+    if (event_code != LV_EVENT_PRESSED && event_code != LV_EVENT_CLICKED) {
+        return;
+    }
+    ui_call_rpc_handler("cycleClockTimezone", NULL);
+}
+
 void action_menu_screen_gesture(lv_event_t * e) {
     handle_gesture_main_screen_switch(e, LV_DIR_RIGHT);
 }

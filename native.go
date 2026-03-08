@@ -63,6 +63,13 @@ func initNative(systemVersion *semver.Version, appVersion *semver.Version) {
 			case "toggleDHCPClient":
 				nativeLogger.Info().Msg("Toggle DHCP request via native rpc event")
 				_ = rpcToggleDHCPClient()
+			case "cycleClockTimezone":
+				config.ClockTimezone = nextClockTimezone(config.ClockTimezone)
+				nativeLogger.Info().Str("clockTimezone", config.ClockTimezone).Msg("Cycle clock timezone request via native rpc event")
+				if err := SaveConfig(); err != nil {
+					nativeLogger.Warn().Err(err).Msg("failed to save clock timezone config")
+				}
+				nativeInstance.UISetVar("clock_timezone", config.ClockTimezone)
 			default:
 				nativeLogger.Warn().Str("event", event).Msg("unknown rpc event received")
 			}
@@ -100,6 +107,10 @@ func initNative(systemVersion *semver.Version, appVersion *semver.Version) {
 	if err := nativeInstance.Start(); err != nil {
 		nativeLogger.Fatal().Err(err).Msg("failed to start native proxy")
 	}
+
+	config.ClockTimezone = normalizeClockTimezone(config.ClockTimezone)
+	nativeInstance.UISetVar("clock_timezone", config.ClockTimezone)
+
 	go func() {
 		if err := nativeInstance.VideoSetEDID(config.EdidString); err != nil {
 			nativeLogger.Warn().Err(err).Msg("error setting EDID")

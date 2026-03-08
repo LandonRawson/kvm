@@ -18,7 +18,8 @@ enum FlowGlobalVariables {
     FLOW_GLOBAL_VARIABLE_APP_VERSION = 0,
     FLOW_GLOBAL_VARIABLE_SYSTEM_VERSION = 1,
     FLOW_GLOBAL_VARIABLE_LVGL_VERSION = 2,
-    FLOW_GLOBAL_VARIABLE_MAIN_SCREEN = 3
+    FLOW_GLOBAL_VARIABLE_MAIN_SCREEN = 3,
+    FLOW_GLOBAL_VARIABLE_CLOCK_TIMEZONE = 4
 };
 
 // Native global variables
@@ -31,6 +32,8 @@ extern const char *get_var_lvgl_version();
 extern void set_var_lvgl_version(const char *value);
 extern const char *get_var_main_screen();
 extern void set_var_main_screen(const char *value);
+extern const char *get_var_clock_timezone();
+extern void set_var_clock_timezone(const char *value);
 
 
 #ifdef __cplusplus
